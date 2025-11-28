@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>크리스마스 직소 퍼즐 (10x10)</title>
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    margin-top: 30px;
+    background: radial-gradient(circle at top, #23395b, #0b1020);
+    color: #fdfdfd;
+  }
+
+  h2 {
+    margin-bottom: 10px;
+  }
+
+  #game-container {
+    display: inline-block;
+    padding: 15px 20px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  }
+
+  #board {
+    width: 500px;      /* 전체 퍼즐 너비 */
+    height: 500px;     /* 전체 퍼즐 높이 */
+    border: 2px solid #f5f5f5;
+    margin: 0 auto 12px auto;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);  /* 10x10 퍼즐 */
+    grid-template-rows: repeat(10, 1fr);
+    gap: 0;            /* 조각 사이에 간격 없음 (한 장의 그림처럼 보이게) */
+    position: relative;
+    background: #111;
+  }
+
+  .piece {
+    width: 50px;       /* 500 / 10 */
+    height: 50px;      /* 500 / 10 */
+    box-sizing: border-box;
+    cursor: pointer;
+    background-size: 500px 500px; /* 전체 이미지를 퍼즐 크기에 맞춤 */
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+
+  .piece:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 8px rgba(255,255,255,0.4);
+  }
+
+  .selected {
+    outline: 2px solid #ffeb3b;
+    box-shadow: 0 0 10px rgba(255,235,59,0.8);
+  }
+
+  #controls {
+    margin-top: 5px;
+  }
+
+  button {
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    margin: 0 4px;
+  }
+
+  button:hover {
+    background: #eee;
+  }
+
+  #info {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
+</style>
+</head>
+<body>
+
+<h2>🎄 크리스마스 직소 퍼즐 (10×10)</h2>
+
+<div id="game-container">
+  <div id="board"></div>
+  <div id="controls">
+    <button id="shuffleBtn">🔀 섞기</button>
+    <button id="resetBtn">원본 위치로 리셋</button>
+  </div>
+  <div id="info">
+    <span id="moveCount">이동 횟수: 0</span>
+  </div>
+</div>
+
+<script>
+  // ===== 설정 =====
+  const ROWS = 10;
+  const COLS = 10;
+  const IMAGE_URL = "christmas.jpg";  // ← 같은 폴더에 있는 크리스마스 이미지 파일 이름
+
+  const TILE_SIZE = 50; // 500px / 10조각
+
+  // ===== 전역 변수 =====
+  let selectedIndex = null;     // 현재 선택된 타일 인덱스
+  let moveCounter = 0;
+
+  const board = document.getElementById("board");
+  const moveCountSpan = document.getElementById("moveCount");
+
+  // ===== 초기화 =====
+  function init() {
+    board.innerHTML = "";
+    selectedIndex = null;
+    moveCounter = 0;
+    updateMoveCount();
+
+    // 0 ~ (ROWS*COLS-1) 번호를 가진 조각을 그대로 순서대로 생성
+    for (let i = 0; i < ROWS * COLS; i++) {
+      const pieceDiv = document.createElement("div");
+      pieceDiv.classList.add("piece");
+      pieceDiv.dataset.index = i;   // 현재 위치
+      pieceDiv.dataset.piece = i;   // 어떤 조각인지 (원래 위치)
+
+      applyBackgroundPosition(pieceDiv, i);
+
+      pieceDiv.addEventListener("click", onPieceClick);
+      board.appendChild(pieceDiv);
+    }
+  }
+
+  // ===== 배경 위치 설정 =====
+  // pieceNum: 0 ~ (ROWS*COLS-1)
+  function applyBackgroundPosition(div, pieceNum) {
+    const row = Math.floor(pieceNum / COLS);
+    const col = pieceNum % COLS;
+
+    const offsetX = col * TILE_SIZE;
+    const offsetY = row * TILE_SIZE;
+
+    div.style.backgroundImage = `url('${IMAGE_URL}')`;
+    div.style.backgroundPosition = `-${offsetX}px -${offsetY}px`;
+  }
+
+  // ===== 타일 클릭 시 처리 =====
+  function onPieceClick(e) {
+    const clickedDiv = e.currentTarget;
+    const idx = parseInt(clickedDiv.dataset.index, 10);
+
+    if (selectedIndex === null) {
+      // 첫 번째 선택
+      selectedIndex = idx;
+      clickedDiv.classList.add("selected");
+    } else if (selectedIndex === idx) {
+      // 같은 타일 다시 클릭 → 선택 해제
+      clickedDiv.classList.remove("selected");
+      selectedIndex = null;
+    } else {
+      // 두 번째 선택 → 서로 교환
+      swapPieces(selectedIndex, idx);
+      clearSelection();
+      moveCounter++;
+      updateMoveCount();
+      checkComplete();
+    }
+  }
+
+  function clearSelection() {
+    const tiles = document.querySelectorAll(".piece");
+    tiles.forEach(t => t.classList.remove("selected"));
+    selectedIndex = null;
+  }
+
+  // ===== 조각 교환 =====
+  function swapPieces(i, j) {
+    const tiles = document.querySelectorAll(".piece");
+
+    const tileA = tiles[i];
+    const tileB = tiles[j];
+
+    const pieceA = parseInt(tileA.dataset.piece, 10);
+    const pieceB = parseInt(tileB.dataset.piece, 10);
+
+    tileA.dataset.piece = pieceB;
+    tileB.dataset.piece = pieceA;
+
+    applyBackgroundPosition(tileA, pieceB);
+    applyBackgroundPosition(tileB, pieceA);
+  }
+
+  // ===== 섞기 =====
+function shuffle() {
+    const tiles = document.querySelectorAll(".piece");
+    const interiorIndexes = [];
+
+    // 내부 조각의 index 수집 (가장자리를 제외한 1~8행, 1~8열)
+    for (let r = 1; r < ROWS - 1; r++) {
+        for (let c = 1; c < COLS - 1; c++) {
+            interiorIndexes.push(r * COLS + c);
+        }
+    }
+
+    // 내부 조각들의 piece 값들을 배열로 추출
+    const interiorPieces = interiorIndexes.map(idx => {
+        return parseInt(tiles[idx].dataset.piece, 10);
+    });
+
+    // 피셔-예이츠 셔플로 내부 조각만 섞기
+    for (let i = interiorPieces.length - 1; i > 0; i--) {
+        const r = Math.floor(Math.random() * (i + 1));
+        [interiorPieces[i], interiorPieces[r]] = [interiorPieces[r], interiorPieces[i]];
+    }
+
+    // 섞인 값들을 다시 DOM에 반영
+    interiorIndexes.forEach((tileIdx, i) => {
+        const pieceNum = interiorPieces[i];
+        const tile = tiles[tileIdx];
+        tile.dataset.piece = pieceNum;
+        applyBackgroundPosition(tile, pieceNum);
+    });
+
+    clearSelection();
+    moveCounter = 0;
+    updateMoveCount();
+}
+
+  // ===== 리셋 (원래 그림 순서로 정렬) =====
+  function resetPieces() {
+    const tiles = document.querySelectorAll(".piece");
+    tiles.forEach((tile, idx) => {
+      tile.dataset.piece = idx;
+      applyBackgroundPosition(tile, idx);
+    });
+    clearSelection();
+    moveCounter = 0;
+    updateMoveCount();
+  }
+
+  // ===== 완성 여부 체크 =====
+  function checkComplete() {
+    const tiles = document.querySelectorAll(".piece");
+    let ok = true;
+
+    tiles.forEach((tile, idx) => {
+      const pieceNum = parseInt(tile.dataset.piece, 10);
+      if (pieceNum !== idx) ok = false;
+    });
+
+    if (ok) {
+      setTimeout(() => {
+        alert("퍼즐 완성! 🎉\n이동 횟수: " + moveCounter + "회");
+      }, 100);
+    }
+  }
+
+  function updateMoveCount() {
+    moveCountSpan.textContent = "이동 횟수: " + moveCounter;
+  }
+
+  // 버튼 이벤트
+  document.getElementById("shuffleBtn").addEventListener("click", shuffle);
+  document.getElementById("resetBtn").addEventListener("click", resetPieces);
+
+  // 처음 로딩 시 실행
+  window.addEventListener("load", init);
+</script>
+
+</body>
+</html>
