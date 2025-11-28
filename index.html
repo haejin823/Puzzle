@@ -2,38 +2,43 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>크리스마스 직소 퍼즐 (10×10)</title>
+<title>🎄 크리스마스 직소 퍼즐 (10×10)</title>
 
 <!-- PWA 설정 -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 
 <style>
+  /* 전체 배경 & 기본 폰트 */
   body {
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     text-align: center;
-    margin-top: 30px;
+    margin: 0;
+    padding: 16px 0 24px;
     background: radial-gradient(circle at top, #23395b, #0b1020);
     color: #fdfdfd;
   }
 
   h2 {
-    margin-bottom: 10px;
+    margin: 4px 0 10px;
+    font-size: 18px;
   }
 
   #game-container {
     display: inline-block;
-    padding: 15px 20px;
+    padding: 12px 14px 18px;
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.3);
     box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    max-width: 100vw;
   }
 
+  /* ★ 퍼즐판 크기를 화면 폭 기준으로 조정 */
   #board {
-    width: 500px;
-    height: 500px;
+    width: min(92vw, 540px);   /* 모바일에서는 거의 꽉 차고, PC에선 최대 540px */
+    height: min(92vw, 540px);  /* 정사각형 유지 */
     border: 2px solid #f5f5f5;
-    margin: 0 auto 12px auto;
+    margin: 0 auto 10px auto;
     display: grid;
     grid-template-columns: repeat(10, 1fr);
     grid-template-rows: repeat(10, 1fr);
@@ -42,12 +47,13 @@
     background: #111;
   }
 
+  /* ★ 각 조각은 칸 크기에 맞춰 자동으로 늘어나도록 100% */
   .piece {
-    width: 50px;
-    height: 50px;
+    width: 100%;
+    height: 100%;
     box-sizing: border-box;
     cursor: pointer;
-    background-size: 500px 500px;
+    /* background-size, position은 JS에서 동적으로 설정 */
     transition: transform 0.08s, box-shadow 0.08s;
   }
 
@@ -62,7 +68,7 @@
   }
 
   #controls {
-    margin-top: 5px;
+    margin-top: 4px;
   }
 
   button {
@@ -80,7 +86,7 @@
   }
 
   #info {
-    margin-top: 5px;
+    margin-top: 4px;
     font-size: 13px;
   }
 </style>
@@ -100,12 +106,10 @@
   </div>
 </div>
 
-
 <script>
   const ROWS = 10;
   const COLS = 10;
-  const IMAGE_URL = "christmas.jpg"; // 크리스마스 이미지 이름
-  const TILE_SIZE = 50;
+  const IMAGE_URL = "christmas.jpg"; // 크리스마스 이미지 파일 이름
 
   let selectedIndex = null;
   let moveCounter = 0;
@@ -132,14 +136,22 @@
     }
   }
 
+  // ★ 보드 크기에 맞춰서 조각의 background 위치 & 크기를 계산
   function applyBackgroundPosition(div, pieceNum) {
     const row = Math.floor(pieceNum / COLS);
     const col = pieceNum % COLS;
 
-    const offsetX = col * TILE_SIZE;
-    const offsetY = row * TILE_SIZE;
+    const boardWidth = board.clientWidth;
+    const boardHeight = board.clientHeight;
+
+    const tileWidth = boardWidth / COLS;
+    const tileHeight = boardHeight / ROWS;
+
+    const offsetX = col * tileWidth;
+    const offsetY = row * tileHeight;
 
     div.style.backgroundImage = `url('${IMAGE_URL}')`;
+    div.style.backgroundSize = `${boardWidth}px ${boardHeight}px`;
     div.style.backgroundPosition = `-${offsetX}px -${offsetY}px`;
   }
 
@@ -184,6 +196,7 @@
     applyBackgroundPosition(tileB, pieceA);
   }
 
+  // ★ 가장자리는 고정, 안쪽(1~8행/열)만 섞기
   function shuffle() {
     const tiles = document.querySelectorAll(".piece");
     const interiorIndexes = [];
@@ -200,7 +213,8 @@
 
     for (let i = interiorPieces.length - 1; i > 0; i--) {
       const r = Math.floor(Math.random() * (i + 1));
-      [interiorPieces[i], interiorPieces[r]] = [interiorPieces[r], interiorPieces[i]];
+      [interiorPieces[i], interiorPieces[r]] =
+        [interiorPieces[r], interiorPieces[i]];
     }
 
     interiorIndexes.forEach((tileIdx, i) => {
@@ -247,19 +261,38 @@
     moveCountSpan.textContent = "이동 횟수: " + moveCounter;
   }
 
+  // ★ 화면 회전/크기 변경 시 퍼즐도 다시 맞게 그리기
+  function redrawAllPieces() {
+    const tiles = document.querySelectorAll(".piece");
+    tiles.forEach(tile => {
+      const pieceNum = parseInt(tile.dataset.piece, 10);
+      applyBackgroundPosition(tile, pieceNum);
+    });
+  }
+
   document.getElementById("shuffleBtn").addEventListener("click", shuffle);
   document.getElementById("resetBtn").addEventListener("click", resetPieces);
 
-  window.addEventListener("load", init);
+  window.addEventListener("load", () => {
+    init();
+    // 초기 로딩 후 한 번 더 보정 (레이아웃 완료 후)
+    setTimeout(redrawAllPieces, 50);
+  });
+
+  window.addEventListener("resize", () => {
+    redrawAllPieces();
+  });
 </script>
 
 <!-- PWA 서비스워커 등록 -->
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js');
+  navigator.serviceWorker.register('./service-worker.js')
+    .catch(err => console.log('SW registration failed', err));
 }
 </script>
 
 </body>
 </html>
+
 
